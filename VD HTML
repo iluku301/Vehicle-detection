@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vehicle Detection</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <style>
+    body { margin: 0; font-family: sans-serif; text-align: center; }
+    canvas { position: absolute; top: 0; left: 0; z-index: 1; }
+    video { position: absolute; top: 0; left: 0; width: 100%; height: auto; z-index: 0; }
+    #container { position: relative; width: 100%; }
+    h2 { margin-top: 20px; z-index: 10; position: relative; color: #fff; text-shadow: 0 0 5px #000; }
+  </style>
+</head>
+<body>
+  <h2>Live Vehicle Detection</h2>
+  <div id="container">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="canvas"></canvas>
+  </div>
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    async function setupCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      video.srcObject = stream;
+      return new Promise(resolve => {
+        video.onloadedmetadata = () => resolve(video);
+      });
+    }
+
+    async function detectFrame(model) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const predictions = await model.detect(video);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      predictions.forEach(pred => {
+        if (['car', 'truck', 'bus', 'motorcycle'].includes(pred.class)) {
+          ctx.strokeStyle = '#00FFFF';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(...pred.bbox);
+          ctx.fillStyle = '#00FFFF';
+          ctx.font = '16px sans-serif';
+          ctx.fillText(`${pred.class} (${Math.round(pred.score * 100)}%)`, pred.bbox[0], pred.bbox[1] > 10 ? pred.bbox[1] - 5 : 10);
+        }
+      });
+      requestAnimationFrame(() => detectFrame(model));
+    }
+
+    async function main() {
+      await setupCamera();
+      video.play();
+      const model = await cocoSsd.load();
+      detectFrame(model);
+    }
+
+    main();
+  </script>
+</body>
+</html>
